@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>dc.js - Box-Plot Example</title>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" type="text/css" href="../css/dc.css"/>
+</head>
+<body>
+
+<div id="series-row-chart"></div>
+<div id="study-pie-chart"></div>
+<div id="series-histogram-chart"></div>
+
+<div>
+<p>
+Exploration of the number of instances in different series for the first
+200 studies in the babybrain dataset.  Clicking on any chart component
+toggles its selection as a filter element.
+</p>
+
+<p>
+Pie chart shows distribution of study descriptions.  Selecting study
+wedges narrows the other charts to show only selected studies.
+</p>
+
+<p>
+Histogram shows how many times a series of a particular number of slices
+occurs in the selected studies.
+</p>
+
+<p>
+Row chart shows the occurance of particular series.
+</p>
+
+<p>
+All chart entries are selectable using <a href=http://dc-js.github.io/dc.js/>dc</a>
+</p>
+
+<p>
+This demo was created as part of the <a href=https://community.i2b2.org/wiki/display/mi2b2/mi2b2+Home>Medical Imaging Informatics Bench to Bedside (mi2b2).</a> 
+</p>
+
+<p>
+The work is funded by <a href=http://www.nibib.nih.gov>NIBIB</a>.
+</p>
+</div>
+
+<script type="text/javascript" src="../js/d3.js"></script>
+<script type="text/javascript" src="../js/crossfilter.js"></script>
+<script type="text/javascript" src="../js/dc.js"></script>
+<script type="text/javascript">
+
+seriesHistogramChart = dc.barChart("#series-histogram-chart");
+seriesRow = dc.rowChart("#series-row-chart");
+studyPie = dc.pieChart("#study-pie-chart");
+
+makePlot = function(data) {
+
+  var ndx             = crossfilter(data),
+      allAccess = ndx.groupAll(),
+      institutionDimension   = ndx.dimension(function(d) {return d.institution;}),
+      institutionGroup       = institutionDimension.group(),
+      studyDimension  = ndx.dimension(function(d) {return d.studyDescription;}),
+      studyGroup  = studyDimension.group(),
+      seriesDimension  = ndx.dimension(function(d) {return d.seriesDescription;}),
+      seriesGroup  = seriesDimension.group(),
+      instanceCountDimension      = ndx.dimension(function(d) {return d.instanceCount;}),
+      instanceCountHistogram      = instanceCountDimension.group().reduceCount(),
+      seriesDescriptionPerInstanceCount = seriesDimension.group().reduceSum(
+        function(d) {return d.instanceCount;});
+
+  var keyAndPercentValueLabel = function (total_value, d) {
+      console.log(total_value, d);
+      return "" + d.key + "  (" + d3.round(d.value/total_value*100.0, 0) + "%)";
+  };
+
+  studyPie
+    .width(850)
+    .height(340)
+    .radius(150)
+    .cx(170)
+    .dimension(studyDimension)
+    .group(studyGroup)
+    .title( function(p) {return "Study Descriptions"} )
+    .legend(dc.legend().x(300).y(10).itemHeight(13).gap(5));
+
+  seriesHistogramChart
+    .width(850).height(400)
+    .dimension(instanceCountDimension)
+    .group(instanceCountHistogram)
+    .x(d3.scale.ordinal())
+    .xUnits(dc.units.ordinal)
+    .xAxisLabel("# of Instances in Series")
+    .yAxisLabel("# of per-Series Count in Dataset")
+    .elasticY(true);
+
+  seriesRow
+    .width(300)
+    .height(1540)
+    .elasticX(true)
+    .dimension(seriesDimension)
+    .group(seriesGroup)
+    .label(function(x) { return keyAndPercentValueLabel(allAccess.value(), x) })
+    .legend(dc.legend().x(300).y(10).itemHeight(10).gap(3))
+    .xAxis().ticks(4);
+
+  dc.renderAll();
+};
+
+var data = [ { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: ' Ax T1 POST',
+      instanceCount: 49 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: ' Ax T1 PRE',
+      instanceCount: 49 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: '3D TOF Head',
+      instanceCount: 150 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: '3Plane Loc SSFSE',
+      instanceCount: 30 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'ADC',
+      instanceCount: 51 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'ASSET calibration',
+      instanceCount: 44 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'ASSET calibration',
+      instanceCount: 62 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'Ax DTI ISO',
+      instanceCount: 1428 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'Ax PD FSE',
+      instanceCount: 49 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'AX REFORMAT',
+      instanceCount: 200 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'Ax T2 FLAIR',
+      instanceCount: 49 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'Cor ceMRA FT Infusion',
+      instanceCount: 80 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'Cor ceMRA Mask',
+      instanceCount: 80 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'COR REFORMAT',
+      instanceCount: 200 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'DWI',
+      instanceCount: 51 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'EXP',
+      instanceCount: 51 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'FA',
+      instanceCount: 51 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'FA (color)',
+      instanceCount: 51 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'MIP',
+      instanceCount: 5 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'Neck Localizer SSFSE',
+      instanceCount: 27 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'Neck TOF Localizer',
+      instanceCount: 60 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'PJN',
+      instanceCount: 37 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'PJN',
+      instanceCount: 37 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'PJN',
+      instanceCount: 37 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'PJN',
+      instanceCount: 37 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'PJN',
+      instanceCount: 37 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'PJN',
+      instanceCount: 37 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'PJN',
+      instanceCount: 37 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'PJN',
+      instanceCount: 37 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'SAG FSPGR 3D',
+      instanceCount: 146 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'Sag T1 FLAIR',
+      instanceCount: 24 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWWO/3D',
+      seriesDescription: 'ZERO-B',
+      instanceCount: 51 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: '3D ANT CIRC',
+      instanceCount: 37 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: '3D COW',
+      instanceCount: 37 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: '3D L. ANT.',
+      instanceCount: 37 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: '3D POST HORIZ',
+      instanceCount: 37 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: '3D POST VERT',
+      instanceCount: 37 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: '3D R. ANT.',
+      instanceCount: 37 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: '3D TOF Head',
+      instanceCount: 150 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: '3Plane Loc SSFSE',
+      instanceCount: 30 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'A/P 3D MIP',
+      instanceCount: 19 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'ADC',
+      instanceCount: 32 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'Ax DTI',
+      instanceCount: 832 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'Ax FIESTA',
+      instanceCount: 132 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'AX FIESTA RFMT',
+      instanceCount: 53 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'AX REFORMAT',
+      instanceCount: 200 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'Ax SWAN (Susceptibility)',
+      instanceCount: 144 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'Ax T2 FLAIR',
+      instanceCount: 32 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'Ax T2 FSE',
+      instanceCount: 32 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'Ax T2 FSE',
+      instanceCount: 47 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'COR FIESTA RFMT',
+      instanceCount: 181 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'COR REFORMAT',
+      instanceCount: 200 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'Cor T2 FSE',
+      instanceCount: 34 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'Cor T2 FSE',
+      instanceCount: 34 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'DWI',
+      instanceCount: 32 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'EXP',
+      instanceCount: 32 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'FA',
+      instanceCount: 32 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'FA (color)',
+      instanceCount: 32 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'MIN IP',
+      instanceCount: 49 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'R/L 3D MIP',
+      instanceCount: 19 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'S/I 3D MIP',
+      instanceCount: 19 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'SAG FIESTA RFMT',
+      instanceCount: 181 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'SAG FSPGR 3D',
+      instanceCount: 146 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRIBRNWO/3D',
+      seriesDescription: 'ZERO-B',
+      instanceCount: 32 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN&/PED',
+      seriesDescription: '3D SPGR CORONAL',
+      instanceCount: 124 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN&/PED',
+      seriesDescription: 'ADC',
+      instanceCount: 23 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN&/PED',
+      seriesDescription: 'AX T1',
+      instanceCount: 27 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN&/PED',
+      seriesDescription: 'AX T2 FSE',
+      instanceCount: 27 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN&/PED',
+      seriesDescription: 'axial flair',
+      instanceCount: 27 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN&/PED',
+      seriesDescription: 'DWI',
+      instanceCount: 23 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN&/PED',
+      seriesDescription: 'DWI raw b=1000',
+      instanceCount: 483 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN&/PED',
+      seriesDescription: 'EXP',
+      instanceCount: 23 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN&/PED',
+      seriesDescription: 'FA',
+      instanceCount: 23 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN&/PED',
+      seriesDescription: 'LOWB',
+      instanceCount: 23 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN&/PED',
+      seriesDescription: 'SAG TI',
+      instanceCount: 16 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN&/PED',
+      seriesDescription: 'SAG TI',
+      instanceCount: 16 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN&/PED',
+      seriesDescription: 'SAG TI',
+      instanceCount: 16 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN&/PED',
+      seriesDescription: 'Screen Save',
+      instanceCount: 2 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN&/PED',
+      seriesDescription: 'T1 AX -POST',
+      instanceCount: 27 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN&/PED',
+      seriesDescription: 'T1 CORONAL- POST',
+      instanceCount: 32 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN&/PED',
+      seriesDescription: 'T1 SAG -POST',
+      instanceCount: 26 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN-/PED/SED',
+      seriesDescription: '3D SPGR CORONAL',
+      instanceCount: 124 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN-/PED/SED',
+      seriesDescription: 'AX T2 FSE',
+      instanceCount: 26 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN-/PED/SED',
+      seriesDescription: 'axial flair',
+      instanceCount: 26 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN-/PED/SED',
+      seriesDescription: 'COR FSE T2(GENERALIZED-SEIZUR',
+      instanceCount: 28 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN-/PED/SED',
+      seriesDescription: 'CORONAL flair',
+      instanceCount: 28 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN-/PED/SED',
+      seriesDescription: 'DIFFUSION B1000',
+      instanceCount: 26 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN-/PED/SED',
+      seriesDescription: 'DIFFUSION B1000',
+      instanceCount: 26 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN-/PED/SED',
+      seriesDescription: 'DIFFUSION B1000',
+      instanceCount: 26 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN-/PED/SED',
+      seriesDescription: 'DIFFUSION B1000',
+      instanceCount: 676 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN-/PED/SED',
+      seriesDescription: 'DIFFUSION B700',
+      instanceCount: 26 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN-/PED/SED',
+      seriesDescription: 'DIFFUSION B700',
+      instanceCount: 26 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN-/PED/SED',
+      seriesDescription: 'DIFFUSION B700',
+      instanceCount: 26 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN-/PED/SED',
+      seriesDescription: 'DIFFUSION B700',
+      instanceCount: 676 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN-/PED/SED',
+      seriesDescription: 'Exponential attenuation',
+      instanceCount: 26 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN-/PED/SED',
+      seriesDescription: 'Exponential attenuation',
+      instanceCount: 26 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN-/PED/SED',
+      seriesDescription: 'MPR Reformatted',
+      instanceCount: 1 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN-/PED/SED',
+      seriesDescription: 'MRS BASAL GANGLIA',
+      instanceCount: 1 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN-/PED/SED',
+      seriesDescription: 'MRS CENTRUM WHITE MATTER',
+      instanceCount: 1 },
+    { institution: 'Mass General Hospital',
+      studyDescription: 'MRBRN-/PED/SED',
+      seriesDescription: 'MRS PARIETAL GRAY',
+      instanceCount: 1 } ];
+
+makePlot(data);
+
+</script>
+
+</body>
+</html>
