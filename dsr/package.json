@@ -1,0 +1,25 @@
+{
+  "name": "dsr",
+  "version": "1.0.0",
+  "description": "simple utilities for dicom structured reports using dcmtk",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "dicom",
+    "structured",
+    "reports",
+    "dcmtk"
+  ],
+  "author": "Steve Pieper",
+  "license": "MIT",
+  "devDependencies": {
+    "browser-sync": "^2.7.13"
+  },
+  "dependencies": {
+    "commander": "^2.8.1",
+    "underscore": "^1.8.3",
+    "xml2js": "^0.4.9"
+  }
+}

@@ -1,0 +1,136 @@
+#!/usr/bin/env node
+/**
+ * A command line utility for dicom structure report processing
+ *
+ * @author Steve Pieper <pieper@isomics.com>
+ *
+ * MIT License
+ * Copyright (c) 2015 Isomics, Inc.
+ * All rights reserved.
+ */
+
+'use strict';
+
+exports.version = "0.0.1"
+
+// shipped with node
+var child_process = require('child_process');
+var fs = require('fs');
+var path = require('path');
+
+// installed as packages
+var program = require('commander');
+var _ = require('underscore');
+var xml2js = require('xml2js');
+
+// Note: some program structure derived from
+// https://www.npmjs.org/package/jsonld
+
+// init common command options
+function _dsrCommand(command) {
+  command
+    .version(exports.version)
+    /* stub for future common options...
+    .option('-H, --host <host>', 'host [localhost]')
+    .option('-P, --port <port>', 'port [5984]')
+    .option('-D, --database <database>', 'database name [Chronicle]');
+    */
+  return command;
+}
+
+
+// common output function
+function _output(data, cmd, callback) {
+  if(typeof data === 'object') {
+    var output = JSON.stringify(data, null, cmd.indent);
+    process.stdout.write(output);
+  } else if(typeof data === 'string') {
+    process.stdout.write(data.trim());
+  } else {
+    process.stdout.write(data);
+  }
+  if(cmd.newline) {
+    process.stdout.write('\n');
+  }
+  callback();
+}
+
+
+// final async call to handle errors
+function _final(err, results) {
+  if(err) {
+    if(err instanceof Error) {
+      console.log(err.toString());
+    } else if(typeof err === 'object') {
+      console.log('Error:', JSON.stringify(err, null, 2));
+    } else {
+      console.log('Error:', err);
+    }
+    process.exit(1);
+  }
+}
+
+
+_dsrCommand(program.command('help [command]'))
+  .description('get detailed help')
+  .action(function(command,commands) {
+    command = command || 'all';
+    switch(command) {
+      case 'all' :
+      case 'ls' :
+        console.log("TODO print the per-command usage");
+        console.log("TODO then parse ch.README.txt for more help text");
+        break;
+      default: console.log("Unknown command: ", command);
+    }
+  });
+
+var toJSONFiles = [];
+_dsrCommand(program.command('toJSON [files...]')) 
+  .description('convert structured report files to json') 
+  .action(function(files) {
+    console.log("[");
+    toJSONFiles = files;
+    dsrFilesToJSON();
+  }, _final); 
+
+var dsrXMLToJSON = function(dsrXML) {
+  xml2js.parseString(dsrXML, function (err, result) {
+    if (err) {
+      console.log('Could not parse the xml!');
+    } else {
+      if (result && result.hasOwnProperty('report')) {
+        console.log(JSON.stringify(result.report));
+        // TODO: ugly access to global
+        if (toJSONFiles.length > 0) {
+          console.log(",");
+        }
+      } else {
+        console.error("No report in file");
+      }
+    }
+  });
+}
+
+
+var dsrFileToJSON = function(file, xmlCallback, nextCallback) {
+  var dsrXML = "";
+  console.error(file);
+  var dsr2xml = child_process.spawn("/usr/local/bin/dsr2xml", [file]);
+  dsr2xml.stdout.on('data', function(data) {dsrXML += data.toString();});
+  dsr2xml.on('close', function() {xmlCallback(dsrXML);});
+  dsr2xml.on('close', function() {nextCallback();});
+}
+
+var dsrFilesToJSON = function() {
+  var dsrFile = toJSONFiles.shift();
+  if (dsrFile) {
+    dsrFileToJSON(dsrFile, dsrXMLToJSON, dsrFilesToJSON);
+  } else {
+    console.log("]");
+  }
+}
+
+program.parse(process.argv);
+
+// vim: syntax=javascript
