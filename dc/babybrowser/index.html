@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>dc.js - Box-Plot Example</title>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" type="text/css" href="../css/dc.css"/>
+</head>
+<body>
+
+<div id="series-row-chart"></div>
+<div id="study-pie-chart"></div>
+<div id="series-histogram-chart"></div>
+
+<div>
+<p>
+Exploration of the number of instances in different series for the first
+200 studies in the babybrain dataset.  Clicking on any chart component
+toggles its selection as a filter element.
+</p>
+
+<p>
+Pie chart shows distribution of study descriptions.  Selecting study
+wedges narrows the other charts to show only selected studies.
+</p>
+
+<p>
+Histogram shows how many times a series of a particular number of slices
+occurs in the selected studies.
+</p>
+
+<p>
+Row chart shows the occurance of particular series.
+</p>
+
+<p>
+All chart entries are selectable using <a href=http://dc-js.github.io/dc.js/>dc</a>
+</p>
+
+<p>
+This demo was created as part of the <a href=https://community.i2b2.org/wiki/display/mi2b2/mi2b2+Home>Medical Imaging Informatics Bench to Bedside (mi2b2).</a> 
+</p>
+
+<p>
+The work is funded by <a href=http://www.nibib.nih.gov>NIBIB</a>.
+</p>
+</div>
+
+<script type="text/javascript" src="../js/d3.js"></script>
+<script type="text/javascript" src="../js/crossfilter.js"></script>
+<script type="text/javascript" src="../js/dc.js"></script>
+<script type="text/javascript" src="../js/jquery-1.11.2.min.js"></script>
+
+
+<script type="text/javascript">
+seriesHistogramChart = dc.barChart("#series-histogram-chart");
+seriesRow = dc.rowChart("#series-row-chart");
+studyPie = dc.pieChart("#study-pie-chart");
+
+makePlot = function(data) {
+
+  var ndx             = crossfilter(data),
+      allAccess = ndx.groupAll(),
+      institutionDimension   = ndx.dimension(function(d) {return d.institution;}),
+      institutionGroup       = institutionDimension.group(),
+      studyDimension  = ndx.dimension(function(d) {return d.studyDescription;}),
+      studyGroup  = studyDimension.group(),
+      seriesDimension  = ndx.dimension(function(d) {return d.seriesDescription;}),
+      seriesGroup  = seriesDimension.group(),
+      instanceCountDimension      = ndx.dimension(function(d) {return d.instanceCount;}),
+      instanceCountHistogram      = instanceCountDimension.group().reduceCount(),
+      seriesDescriptionPerInstanceCount = seriesDimension.group().reduceSum(
+        function(d) {return d.instanceCount;});
+
+  var keyAndPercentValueLabel = function (total_value, d) {
+      return "" + d.key + "  (" + d3.round(d.value/total_value*100.0, 0) + "%)";
+  };
+
+  studyPie
+    .width(850)
+    .height(340)
+    .radius(150)
+    .cx(170)
+    .dimension(studyDimension)
+    .group(studyGroup)
+    .title( function(p) {return "Study Descriptions"} )
+    .legend(dc.legend().x(300).y(10).itemHeight(13).gap(5));
+
+  seriesHistogramChart
+    .width(850).height(400)
+    .dimension(instanceCountDimension)
+    .group(instanceCountHistogram)
+    .x(d3.scale.ordinal())
+    .xUnits(dc.units.ordinal)
+    .xAxisLabel("# of Instances in Series")
+    .yAxisLabel("# of per-Series Count in Dataset")
+    .elasticY(true);
+
+  seriesRow
+    .width(300)
+    .height(1540)
+    .elasticX(true)
+    .dimension(seriesDimension)
+    .group(seriesGroup)
+    .label(function(x) { return keyAndPercentValueLabel(allAccess.value(), x) })
+    .legend(dc.legend().x(300).y(10).itemHeight(10).gap(3))
+    .xAxis().ticks(4);
+
+  dc.renderAll();
+};
+
+var data = {};
+
+$.ajax( {
+    dataType: "json", 
+    url: "sampledata.json", 
+    success: function( data ) {
+      makePlot(data);
+    },
+    error: function( jqXHR, textStatus, errorThrown ) {
+      console.log( jqXHR, textStatus, errorThrown );
+    },
+});
+
+</script>
+
+</body>
+</html>
