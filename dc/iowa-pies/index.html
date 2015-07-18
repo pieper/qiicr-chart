@@ -13,6 +13,7 @@
 -->
 
 <div id="algo-pie-chart"></div>
+<div id="observer-pie-chart"></div>
 <div id="timevsvolume-chart"></div>
 
 <div>
@@ -40,6 +41,7 @@ The work is funded by NCI.
 
 //seriesHistogramChart = dc.barChart("#series-histogram-chart");
 //seriesRow = dc.rowChart("#series-row-chart");
+observerPie = dc.pieChart("#observer-pie-chart");
 algoPie = dc.pieChart("#algo-pie-chart");
 timeVsVolumeScatter = dc.scatterPlot("#timevsvolume-chart");
 
@@ -53,22 +55,22 @@ makePlot = function(data) {
       algoGroup  = algoDimension.group(),
       readerDimension  = ndx.dimension(function(d) {return d.PersonObserverName;}),
       readerGroup  = readerDimension.group(),
-      volumeDimension  = ndx.dimension(function(d) {return d.Volume;}),
+      volumeDimension  = ndx.dimension(function(d) {return [d.Volume, d.Maximum-d.Minimum, d.PersonObserverName];}),
       volumeGroup  = volumeDimension.group();
+      meanSignalDimension  = ndx.dimension(function(d) {return d.Mean;}),
+      meanSignalGroup  = meanSignalDimension.group();
       timePointDimension  = ndx.dimension(function(d) {return d.TimePoint;}),
       timePointGroup  = timePointDimension.group();
 
-      /*
-      instanceCountDimension      = ndx.dimension(function(d) {return d.instanceCount;}),
-      instanceCountHistogram      = instanceCountDimension.group().reduceCount(),
-      seriesDescriptionPerInstanceCount = seriesDimension.group().reduceSum(
-        function(d) {return d.instanceCount;});
-
-
-  var keyAndPercentValueLabel = function (total_value, d) {
-      console.log(total_value, d);
-      return "" + d.key + "  (" + d3.round(d.value/total_value*100.0, 0) + "%)";
-  };*/
+  observerPie
+    .width(850)
+    .height(340)
+    .radius(150)
+    .cx(170)
+    .dimension(readerDimension)
+    .group(readerGroup)
+    .title( function(p) {return "Reader"} )
+    .legend(dc.legend().x(300).y(10).itemHeight(13).gap(5));
 
   algoPie
     .width(850)
@@ -80,38 +82,21 @@ makePlot = function(data) {
     .title( function(p) {return "Algorithm type"} )
     .legend(dc.legend().x(300).y(10).itemHeight(13).gap(5));
 
-    timeVsVolumeScatter
-      .width(768)
-      .height(480)
-      .x(d3.scale.linear().domain([6,20]))
-      .brushOn(false)
-      .symbolSize(8)
-      .clipPadding(10)
-      .yAxisLabel("This is the Y Axis!")
-      .dimension(timePointDimension)
-      .group(volumeGroup);
+  timeVsVolumeScatter
+    .width(768)
+    .height(480)
+    .x(d3.scale.linear().domain([0,100]))
+    .xAxisLabel("Tumor Volume")
+    .yAxisLabel("Signal Range")
+    .brushOn(false)
+    .symbolSize(8)
+    .clipPadding(10)
+    .colors(d3.scale.ordinal().domain(["User1","User2", "User3"])
+                                .range(["#00FF00","#FF0000", "#0000FF"]))
+    .colorAccessor(function(d) {return d.key[2];})
+    .dimension(volumeDimension)
+    .group(volumeGroup);
 
-/*
-  seriesHistogramChart
-    .width(850).height(400)
-    .dimension(instanceCountDimension)
-    .group(instanceCountHistogram)
-    .x(d3.scale.ordinal())
-    .xUnits(dc.units.ordinal)
-    .xAxisLabel("# of Instances in Series")
-    .yAxisLabel("# of per-Series Count in Dataset")
-    .elasticY(true);
-
-  seriesRow
-    .width(300)
-    .height(1540)
-    .elasticX(true)
-    .dimension(seriesDimension)
-    .group(seriesGroup)
-    .label(function(x) { return keyAndPercentValueLabel(allAccess.value(), x) })
-    .legend(dc.legend().x(300).y(10).itemHeight(10).gap(3))
-    .xAxis().ticks(4);
-*/
   dc.renderAll();
 };
 
