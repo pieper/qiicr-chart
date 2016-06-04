@@ -259,7 +259,7 @@ function makeMeasurmentPlot(measurementData) {
   var view =
     mathbox
     .cartesian({
-      range: [[0, 1], [0, 1]],
+      range: [[0, 1], [0, 700]],
       scale: [1, 1],
     });
 
@@ -277,7 +277,7 @@ function makeMeasurmentPlot(measurementData) {
     })
     .grid({
       width: 1,  
-      divideX: 10,
+      divideX: 5,
       divideY: 10,        
     });
 
@@ -293,7 +293,7 @@ function makeMeasurmentPlot(measurementData) {
   var measurmentPoints = [];
   for (var index = 0; index < pointCount; index++) {
     var x = index/pointCount;
-    measurmentPoints.push([x, Math.random()]);
+    measurmentPoints.push([x, measurementData[index].measurementValue]);
   }
   var vector =
     view.array({
@@ -313,7 +313,7 @@ function makeMeasurmentPlot(measurementData) {
   var scale =
     view.scale({
       axis: 2,
-      divide: 10,
+      divide: 5,
     });
 
   var ticks =
@@ -339,7 +339,7 @@ function makeMeasurmentPlot(measurementData) {
   var legend = 
     view
     .text({
-      data: ['Volume'],
+      data: ['Volume (ml)'],
     })
     .label({
       offset: [0, -40],
