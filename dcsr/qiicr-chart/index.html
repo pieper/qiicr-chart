@@ -42,13 +42,17 @@
 
 <div>
 <p>
-Exploration of the number of primary tumor site vs outcome vs sex for
+Exploration of clinical variables vs quantitative imaging results for
 patients studied by the University of Iowa as part of the NCI
 Quantitative Imaging Network.
 </p>
 
 <p>
-All chart entries are selectable using <a href=http://dc-js.github.io/dc.js/>dc</a>
+Chart key: Rater 1: red diamond; Rater 2: blue circle; Rater 3: green square.
+</p>
+<p>
+Chart created using <a href=http://dc-js.github.io/dc.js/>dc</a>
+and <a href=http://gitgud.io/unconed/mathbox>MathBox</a>.
 </p>
 
 <p>
@@ -253,67 +257,111 @@ three.renderer.setClearColor(new THREE.Color(0xFFFFFF), 1.0);
 
 function makeMeasurmentPlot(options) {
 
-  plotMeasurements = options.plotMeasurements || [];
-  legendText = options.legendText || "No data";
+
+  var plotMeasurements = options.plotMeasurements || {};
+  var legendText = options.legendText || "No data";
+  var patients = Object.keys(plotMeasurements).sort();
+  var xDivisions = 10;
+  if (patients.length) {
+    xDivisions = 1 + patients.length;
+  }
 
   // overall mathbox settings
   mathbox.remove("*"); // start with clean slate
   mathbox
-    .set('focus', 3)
-    .camera({ proxy: true, position: [0, 0, 3], });
+    .set('focus', 2)
+    .camera({ proxy: true, position: [0, 0, 2], });
 
-  // view is a cartesian plotting area with 
+  // view is a cartesian plotting area with
   // axes, a grid, label, etc
-  var view = mathbox.cartesian({ range: [[0, 1], [0, 700]], scale: [2, 1], })
+  var view = mathbox.cartesian({ range: [[0, 1], [0, 100]], scale: [2, 1], })
     .axis({ axis: 1, width: 3, end: false, })
     .axis({ axis: 2, width: 3, end: false, })
-    .grid({ width: 1,  divideX: 20, divideY: 10, })
+    .grid({ width: 1,  divideX: xDivisions, niceX: false, divideY: 10, })
     .scale({ axis: 2, divide: 5, })
     .ticks({ width: 3, size: 7, color: 'black', })
     .format({ digits: 2, })
     .label({ color: 'gray', zIndex: 1, offset: [-30, 0], })
     .text({ data: [legendText], })
-    .label({ offset: [0, -40], zIndex: 1, color: 'black', });
+    .label({ offset: [500, -40], zIndex: 1, color: 'black', });
   mathbox.select('axis').set('color', 'black');
   mathbox.select('grid').set('color', 'lightgray');
 
-  // the scatter plot 
-  var pointCount = plotMeasurements.length;
-  var measurmentPoints = [];
-  for (var index = 0; index < pointCount; index++) {
-    var x = index/pointCount;
-    measurmentPoints.push([x, plotMeasurements[index].measurementValue]);
+  // the scatter plot
+  measurementPointsByObserver = {};
+  var x = 0;
+  var xIncrement = 1. / (1 + patients.length);
+  for (var patientIndex in patients) {
+    var patient = patients[patientIndex];
+    x += xIncrement;
+    var measurements = plotMeasurements[patient];
+    for (var index = 0; index < measurements.length; index++) {
+      var measurement = measurements[index];
+      var observer = measurement.personObserverName;
+      if (!measurementPointsByObserver[observer]) {
+        measurementPointsByObserver[observer] = [];
+      }
+      measurementPointsByObserver[observer].push([x, measurement.measurementValue]);
+    }
   }
-  view.array({
-      id : 'data',
-      data : measurmentPoints,
-      width: pointCount,
-      channels: 2,
-      items: 1,
-    })
-    .point({ color: 'red', shape: 'diamond', size: 2, });
+  for (var observer in measurementPointsByObserver) {
+    points = measurementPointsByObserver[observer];
+    view
+      .array({
+        id : observer,
+        data : points,
+        width: points.length,
+        channels: 2,
+        items: 1,
+        live: false,
+      })
+      .point(options.pointOptions[observer]);
+  }
 }
 
 function filterAndPlotMeasurements() {
+  var observerSet = new Set(["User1", "User2", "User3"]);
   var selectedPatients = patientIDDimension.top(Infinity);
   var patientIDSet = new Set();
   for (var patientIndex in selectedPatients) {
     var patientID = selectedPatients[patientIndex].patient[0].id[0];
     patientIDSet.add(patientID);
   }
-  var plotMeasurements = [];
+  var volumesByPatient = {};
   for (var measurementIndex in measurementData) {
     measurement = measurementData[measurementIndex];
-    if (patientIDSet.has(measurement.patientID)) {
+    if (!observerSet.has(measurement.personObserverName)) {
+      continue;
+    }
+    if (measurement.finding != "Neoplasm, Primary") {
+      continue;
+    }
+    if (measurement.activitySession != "1") {
+      continue;
+    }
+    var patientID = measurement.patientID;
+    if (patientIDSet.has(patientID)) {
       if (measurement.measurementConcept == "Volume") {
-        plotMeasurements.push(measurement);
+        if (!volumesByPatient[patientID]) {
+          volumesByPatient[patientID] = [];
+        }
+        volumesByPatient[patientID].push(measurement);
       }
     }
   }
-  makeMeasurmentPlot({
-    plotMeasurements : plotMeasurements,
-    legendText : 'Volume (ml)',
-  });
+  var options = {
+    plotMeasurements : volumesByPatient,
+    pointOptions : {
+      "User1" : { color: 'red', shape: 'diamond', size: 8, opacity: .75 },
+      "User2" : { color: 'blue', shape: 'circle', size: 8, opacity: .75 },
+      "User3" : { color: 'green', shape: 'square', size: 8, opacity: .75 },
+    },
+    legendText : 'Primary lesion volume (ml) per patient',
+  };
+  if (Object.keys(volumesByPatient).legnth == 0) {
+    options.legendText = 'No data available';
+  }
+  makeMeasurmentPlot(options);
 }
 
 var measurementData = [];
@@ -325,7 +373,7 @@ $.getJSON("./measurements.json", function(data) {
 
 makeMeasurmentPlot({
   plotMeasurements : [],
-  legendText : 'Waiting for data to load...',
+  legendText : ['Waiting for data to load...'],
 });
 
 </script>
