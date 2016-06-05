@@ -66,6 +66,7 @@ The work is funded by <a href=http://www.nci.nih.gov>NCI</a>.
 <script type="text/javascript">
 
 var ndx;
+var patientIDDimension;
 
 $(document).ready(function() {
 
@@ -122,7 +123,7 @@ $(document).ready(function() {
     }),
     chewingGroup = chewingDimension.group();
 
-    var patientIDDimension = ndx.dimension(function(d) {
+    patientIDDimension = ndx.dimension(function(d) {
       return (d.patient[0].id[0]);
     });
 
@@ -223,7 +224,9 @@ $(document).ready(function() {
 
 });
 
-
+/*
+ * clinical data cohort selection
+ */
 var clinicalData;
 $.getJSON("./clinical.json", function(data) {
   clinicalData = data;
@@ -231,135 +234,98 @@ $.getJSON("./clinical.json", function(data) {
 });
 
 
-function makeMeasurmentPlot(measurementData) {
-  var element = document.querySelector('#volume-scatter');
-  var mathbox = mathBox({
-    element: element,
-    plugins: ['core', 'controls', 'cursor', 'mathbox'],
-    controls: {
-      // Orbit controls, i.e. Euler angles, with gimbal lock
-      klass: THREE.OrbitControls,
-    },
-  });
+/*
+ * measurement data scatter plot
+ */
+var element = document.querySelector('#volume-scatter');
+var mathbox = mathBox({
+  element: element,
+  plugins: ['core', 'controls', 'cursor', 'mathbox'],
+  controls: {
+    // Orbit controls, i.e. Euler angles, with gimbal lock
+    klass: THREE.OrbitControls,
+  },
+});
+if (mathbox.fallback) throw "WebGL not supported"
 
-  if (mathbox.fallback) throw "WebGL not supported"
+var three = mathbox.three;
+three.renderer.setClearColor(new THREE.Color(0xFFFFFF), 1.0);
 
-  var three = mathbox.three;
-  three.renderer.setClearColor(new THREE.Color(0xFFFFFF), 1.0);
+function makeMeasurmentPlot(options) {
 
-  // Place camera
-  var camera =
-    mathbox
-    .camera({
-      proxy: true,
-      position: [0, 0, 3],
-    });
+  plotMeasurements = options.plotMeasurements || [];
+  legendText = options.legendText || "No data";
 
-  // 2D cartesian
-  var view =
-    mathbox
-    .cartesian({
-      range: [[0, 1], [0, 700]],
-      scale: [1, 1],
-    });
+  // overall mathbox settings
+  mathbox.remove("*"); // start with clean slate
+  mathbox
+    .set('focus', 3)
+    .camera({ proxy: true, position: [0, 0, 3], });
 
-  // Axes + grid
-  view
-    .axis({
-      axis: 1,
-      width: 3,
-      end: false,
-    })
-    .axis({
-      axis: 2,
-      width: 3,
-      end: false,
-    })
-    .grid({
-      width: 1,  
-      divideX: 5,
-      divideY: 10,        
-    });
-
-  // Make axes black, grid faint
+  // view is a cartesian plotting area with 
+  // axes, a grid, label, etc
+  var view = mathbox.cartesian({ range: [[0, 1], [0, 700]], scale: [2, 1], })
+    .axis({ axis: 1, width: 3, end: false, })
+    .axis({ axis: 2, width: 3, end: false, })
+    .grid({ width: 1,  divideX: 20, divideY: 10, })
+    .scale({ axis: 2, divide: 5, })
+    .ticks({ width: 3, size: 7, color: 'black', })
+    .format({ digits: 2, })
+    .label({ color: 'gray', zIndex: 1, offset: [-30, 0], })
+    .text({ data: [legendText], })
+    .label({ offset: [0, -40], zIndex: 1, color: 'black', });
   mathbox.select('axis').set('color', 'black');
   mathbox.select('grid').set('color', 'lightgray');
 
-  // Calibrate focus distance for units
-  mathbox.set('focus', 3);
-
-  // generate points
-  var pointCount = measurementData.length;
+  // the scatter plot 
+  var pointCount = plotMeasurements.length;
   var measurmentPoints = [];
   for (var index = 0; index < pointCount; index++) {
     var x = index/pointCount;
-    measurmentPoints.push([x, measurementData[index].measurementValue]);
+    measurmentPoints.push([x, plotMeasurements[index].measurementValue]);
   }
-  var vector =
-    view.array({
+  view.array({
       id : 'data',
       data : measurmentPoints,
       width: pointCount,
       channels: 2,
       items: 1,
-    }).point({
-      color: 'red',
-      shape: 'diamond',
-      opacity: .5,
-      size: 2,
-    });
-
-  // Draw ticks and labels
-  var scale =
-    view.scale({
-      axis: 2,
-      divide: 5,
-    });
-
-  var ticks =
-    view.ticks({
-      width: 3,
-      size: 7,
-      color: 'black',
-    });
-
-  var format =
-    view.format({
-      digits: 2,
-      weight: 'bold',
-    });
-
-  var labels =
-    view.label({
-      color: 'blue',
-      zIndex: 1,
-      offset: [-30, 0],
-    });
-
-  var legend = 
-    view
-    .text({
-      data: ['Volume (ml)'],
     })
-    .label({
-      offset: [0, -40],
-      zIndex: 1,
-      color: 'black',
-    });
+    .point({ color: 'red', shape: 'diamond', size: 2, });
 }
-      
-var measurementData;
-var volumes;
-$.getJSON("./measurements.json", function(data) {
-  measurementData = data;
-  volumes = [];
+
+function filterAndPlotMeasurements() {
+  var selectedPatients = patientIDDimension.top(Infinity);
+  var patientIDSet = new Set();
+  for (var patientIndex in selectedPatients) {
+    var patientID = selectedPatients[patientIndex].patient[0].id[0];
+    patientIDSet.add(patientID);
+  }
+  var plotMeasurements = [];
   for (var measurementIndex in measurementData) {
     measurement = measurementData[measurementIndex];
-    if (measurement.measurementConcept == "Volume") {
-      volumes.push(measurement);
+    if (patientIDSet.has(measurement.patientID)) {
+      if (measurement.measurementConcept == "Volume") {
+        plotMeasurements.push(measurement);
+      }
     }
   }
-  makeMeasurmentPlot(volumes);
+  makeMeasurmentPlot({
+    plotMeasurements : plotMeasurements,
+    legendText : 'Volume (ml)',
+  });
+}
+
+var measurementData = [];
+$.getJSON("./measurements.json", function(data) {
+  measurementData = data;
+  measurementTable.on('preRedraw', filterAndPlotMeasurements);
+  filterAndPlotMeasurements();
+});
+
+makeMeasurmentPlot({
+  plotMeasurements : [],
+  legendText : 'Waiting for data to load...',
 });
 
 </script>
