@@ -75,13 +75,22 @@ The work is funded by <a href=http://www.nci.nih.gov>NCI</a>.
 <script type="text/javascript" src="../js/dc.js"></script>
 <script type="text/javascript">
 
-$(document).ready(function() {
+/*
+Test in Slicer:
+
+v = qt.QWebView()
+v.settings().setAttribute(qt.QWebSettings.DeveloperExtrasEnabled, True)
+v.show()
+v.setUrl(qt.QUrl('http://localhost:12345/dcsr/qiicr-chart/index.html'))
+*/
 
 var ndx;
 var patientIDDimension;
 var clinicalData;
-var measurementData = [];
+var measurementData;
+var filterAndPlotMeasurements;
 
+$(document).ready(function() {
 
   // Request the clinical and measurement data
   $.getJSON("./measurements.json", function(data) {
@@ -271,19 +280,21 @@ var measurementData = [];
     // root is a normalized 0 to 1 coordinate system
     svg.clear();
     var aspectRatio = svg.width() / svg.height();
-    var transformString = 'scale('+ svg.width() + ',' + svg.height() + ')';
-    var root = svg.group('root', {'transform': transformString });
-    var patientLines = svg.group(root, 'patientLines', {'stroke': '#eee', 'stroke-width': .001});
+    var root = svg.group('root');
+    var patientLines = svg.group(root, 'patientLines', {'stroke': '#eee', 'stroke-width': 1});
+
+    console.log('plotMeasurements', plotMeasurements);
 
     // the scatter plot
     measurementPointsByObserver = {};
-    var xIncrement = 1. / (1 + patients.length); // one-patient-width margin on each side
+    var xIncrement = svg.width() / (1 + patients.length); // one-patient-width margin on each side
     x = 0;
     var maxMeasurmentValue = 0;
     for (var patientIndex in patients) {
+      console.log('patientIndex', patientIndex);
       var patient = patients[patientIndex];
       x += xIncrement;
-      svg.line(patientLines, x, 0, x, 1);
+      svg.line(patientLines, x, 0, x, svg.height());
       var measurements = plotMeasurements[patient];
       for (var index = 0; index < measurements.length; index++) {
         var measurement = measurements[index];
@@ -298,14 +309,14 @@ var measurementData = [];
       }
     }
 
-    var radius = 0.005;
-    var strokeWidth = 0.001;
+    var radius = 10;
+    var strokeWidth = 1;
     for (var observer in measurementPointsByObserver) {
       var pointGroup = svg.group(root, observer);
       points = measurementPointsByObserver[observer];
       for (var pointIndex in points) {
         var point = points[pointIndex];
-        svg.circle(pointGroup, point[0], point[1]/maxMeasurmentValue, radius, {
+        svg.circle(pointGroup, point[0], svg.height() * point[1]/maxMeasurmentValue, radius, {
             class: 'studyPoint', fill: '#aaa', stroke: 'red', 'stroke-width': strokeWidth,
             studyURL : 'http://qiicr.org',
             visitInfo : observer,
@@ -318,19 +329,20 @@ var measurementData = [];
                     .bind('mouseout', studyOut);
   }
 
-  function filterAndPlotMeasurements() {
+  filterAndPlotMeasurements = function() {
+    console.log('filterAndPlotMeasurements');
     var svg = $('#trialChartID').svg('get');
-    var observerSet = new Set(["User1", "User2", "User3"]);
+    var observerSet = ["User1", "User2", "User3"];
     var selectedPatients = patientIDDimension.top(Infinity);
-    var patientIDSet = new Set();
+    var patientIDSet = []
     for (var patientIndex in selectedPatients) {
       var patientID = selectedPatients[patientIndex].patient[0].id[0];
-      patientIDSet.add(patientID);
+      patientIDSet.push(patientID);
     }
     var volumesByPatient = {};
     for (var measurementIndex in measurementData) {
       measurement = measurementData[measurementIndex];
-      if (!observerSet.has(measurement.personObserverName)) {
+      if (observerSet.indexOf(measurement.personObserverName) == -1) {
         continue;
       }
       if (measurement.finding != "Neoplasm, Primary") {
@@ -340,7 +352,7 @@ var measurementData = [];
         continue;
       }
       var patientID = measurement.patientID;
-      if (patientIDSet.has(patientID)) {
+      if (patientIDSet.indexOf(patientID) != -1) {
         if (measurement.measurementConcept == "Volume") {
           if (!volumesByPatient[patientID]) {
             volumesByPatient[patientID] = [];
