@@ -53,9 +53,6 @@ Quantitative Imaging Network.
 </p>
 
 <p>
-Chart key: Rater 1: red diamond; Rater 2: blue circle; Rater 3: green square.
-</p>
-<p>
 Chart created using <a href=http://dc-js.github.io/dc.js/>dc</a>
 and <a href=http://keith-wood.name/svg.html>Jquery.svg</a>.
 </p>
@@ -117,6 +114,12 @@ $(document).ready(function() {
   chewingPieChart = dc.pieChart("#chewing-pie-chart", "clinical");
   outcomeHistogramChart = dc.barChart("#outcome-histogram-chart", "clinical");
   measurementTable = dc.dataTable("#measurement-table", "clinical");
+
+  // initialize scatter plot
+  $('#volume-scatter').append(
+    "<div id='trialChartID' class='svgTrialChart' style='width: 100%; height: 600px'></div>"
+  );
+  $('#trialChartID').svg();
 
   // callback to populate clinical once downloaded
   makeClinicalPlot = function(clinicalData) {
@@ -300,7 +303,18 @@ $(document).ready(function() {
         if (!measurementPointsByObserver[observer]) {
           measurementPointsByObserver[observer] = [];
         }
-        measurementPointsByObserver[observer].push([x, measurement.measurementValue]);
+        var method = 'Manual';
+        if (measurement.seriesDescription.search('SemiAuto') != -1) {
+          method = 'SemiAuto';
+        }
+        measurementPointsByObserver[observer].push({
+          point : [x, measurement.measurementValue],
+          method : method,
+          referencedSegmentSOPInstanceUID : measurement.referencedSegmentSOPInstanceUID,
+          referencedSegmentNumbers : measurement.SegmentNumbers,
+          patient : patient,
+          measurementValue : measurement.measurementValue,
+        });
         if (measurement.measurementValue > maxMeasurmentValue) {
           maxMeasurmentValue = measurement.measurementValue;
         }
@@ -308,18 +322,32 @@ $(document).ready(function() {
     }
 
     var radius = 7;
+    var rectSize = radius-1;
     var strokeWidth = 1;
+    var topEdge = maxMeasurmentValue * 1.05;
     for (var observer in measurementPointsByObserver) {
       var pointGroup = svg.group(root, observer);
-      points = measurementPointsByObserver[observer];
-      for (var pointIndex in points) {
-        var point = points[pointIndex];
-        var y = svg.height() * (1. - point[1]/maxMeasurmentValue);
-        svg.circle(pointGroup, point[0], y, radius, {
-            class: 'studyPoint ' + observer, 
-            studyURL : 'http://qiicr.org',
-            visitInfo : observer,
-          });
+      measurementPoints = measurementPointsByObserver[observer];
+      for (var pointIndex in measurementPoints) {
+        var measurementPoint = measurementPoints[pointIndex];
+        var point = measurementPoint.point;
+        var y = svg.height() * (1. - point[1]/topEdge);
+        var settings = {
+          class: 'studyPoint ' + observer,
+          studyURL : 'http://qiicr.org',
+          referencedSegmentSOPInstanceUID : measurementPoint.referencedSegmentSOPInstanceUID,
+          referencedSegmentNumbers : measurementPoint.SegmentNumbers,
+          instanceUID : measurementPoint.instanceUID,
+          observer : observer,
+          method : measurementPoint.method,
+          patient : measurementPoint.patient,
+          measurementValue : measurementPoint.measurementValue,
+        };
+        if (measurementPoint.method == 'Manual') {
+          svg.circle(pointGroup, point[0], y, radius, settings);
+        } else {
+          svg.rect(pointGroup, point[0]-rectSize, y-rectSize, 2*rectSize, 2*rectSize, settings);
+        }
       }
     }
 
@@ -327,6 +355,25 @@ $(document).ready(function() {
     $('.studyPoint').bind('click', studyClick)
                     .bind('mouseover', studyOver)
                     .bind('mouseout', studyOut);
+
+    // make a legend
+    var css = {
+      position: 'absolute',
+      display: 'inline',
+      border: '1px solid #fdd',
+      padding: '1px',
+      'background-color': '#fff',
+      opacity: 0.90,
+      font: '10px sans-serif',
+      top: 20,
+      left : 20,
+    };
+    var contents = "X-axis: patient<br>";
+    contents += "Y-axis: tumor volume<br>";
+    contents += "Circles: manual segmentation<br>";
+    contents += "Squares: semi-auto segmentation<br>";
+    contents += "Color: user<br>";
+    $('<div id="legend">' + contents + '</div>').css( css ).appendTo("body").fadeIn(500);
   }
 
   filterAndPlotMeasurements = function() {
@@ -371,40 +418,19 @@ $(document).ready(function() {
     makeMeasurmentPlot(options);
   }
 
-  $(function(){
-
-    $('#volume-scatter').append(
-      "<div id='trialChartID' class='svgTrialChart' style='width: 100%; height: 600px'></div>"
-    );
-
-    $('#trialChartID').svg();
-  });
-
   function showInfoBox(x, y, contents) {
-      var css = {
-        position: 'absolute',
-        display: 'inline',
-        border: '1px solid #fdd',
-        padding: '1px',
-        'background-color': '#fff',
-        opacity: 0.90
+    var css = {
+      position: 'absolute',
+      display: 'inline',
+      border: '1px solid #fdd',
+      padding: '1px',
+      'background-color': '#fff',
+      opacity: 0.90,
+      font: '10px sans-serif',
     };
-    var svg = $('#trialChartID').svg('get');
-    /* TODO
-    if ( x < svg.width() / 2. ) {
-      css.left = x + 5;
-    } else {
-      css.right = x - 5;
-    }
-    if ( y < svg.height() / 2. ) {
-      css.top = y + 5;
-    } else {
-      css.bottom = y - 5;
-    }
-    */
     css.top = y+5;
     css.left = x+5;
-    $('<div id="infoBox">' + contents + '</div>').css( css ).appendTo("body").fadeIn(200);
+    $('<div id="infoBox">' + contents + '</div>').css( css ).appendTo("body").fadeIn(500);
   }
 
   function studyClick(event) {
@@ -418,27 +444,33 @@ $(document).ready(function() {
 
   function studyOver(event) {
     var measurement = event.target;
-    var visitInfo = measurement.getAttribute('visitInfo');
-      $(this).attr('stroke', 'lime');
-      $(this).attr('fill', 'black');
-      showInfoBox(event.pageX, event.pageY, visitInfo);
+    $(this).attr('stroke', 'black');
+    $(this).attr('opacity', 1);
+
+    var observer = measurement.getAttribute('observer');
+    var method = measurement.getAttribute('method');
+    var patient = measurement.getAttribute('patient');
+    var measurementValue = measurement.getAttribute('measurementValue');
+    var html = "<p>Patient:<strong>" + patient + "</strong></p>";
+    html += "<p>Observer:<strong>" + observer + "</strong></p>";
+    html += "<p>Method:<strong>" + method + "</strong></p>";
+    html += "<p>Value:<strong>" + measurementValue + "</strong>(ml)</p>";
+    showInfoBox(event.pageX, event.pageY, html);
   }
 
   function studyOut() {
     setUserStyles();
-    $("#infoBox").fadeOut(300).remove();
+    $("#infoBox").fadeOut(500).remove();
   }
 
   function setUserStyles() {
-    $('.User1').attr('fill', 'rgba(255, 0, 0, .6)');
-    $('.User2').attr('fill', 'rgba(0, 255, 0, .6)');
-    $('.User3').attr('fill', 'rgba(0, 0, 255, .6)');
-    $('.User1').attr('stroke', 'black');
-    $('.User2').attr('stroke', 'black');
-    $('.User3').attr('stroke', 'black');
+    $('.User1').attr('fill', 'rgba(255, 100, 100, .6)');
+    $('.User2').attr('fill', 'rgba(100, 255, 100, .6)');
+    $('.User3').attr('fill', 'rgba(100, 100, 255, .6)');
+    $('.User1').attr('stroke', '#555');
+    $('.User2').attr('stroke', '#555');
+    $('.User3').attr('stroke', '#555');
   }
-
-
 });
 
 </script>
