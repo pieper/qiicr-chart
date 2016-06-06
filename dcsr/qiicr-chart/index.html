@@ -10,6 +10,12 @@
     <meta name="viewport" content="initial-scale=1, maximum-scale=1">
 
     <style type="text/css">
+      .dc-chart g.row text {
+          fill: #7B2727;
+      }
+      .dc-chart .pie-slice {
+          fill: #7B2727;
+      }
       .dc-chart th {
         text-align: left
       }
@@ -75,6 +81,7 @@ v = qt.QWebView()
 v.settings().setAttribute(qt.QWebSettings.DeveloperExtrasEnabled, True)
 v.show()
 v.setUrl(qt.QUrl('http://localhost:12345/dcsr/qiicr-chart/index.html'))
+
 */
 
 var ndx;
@@ -307,14 +314,16 @@ $(document).ready(function() {
       points = measurementPointsByObserver[observer];
       for (var pointIndex in points) {
         var point = points[pointIndex];
-        svg.circle(pointGroup, point[0], svg.height() * point[1]/maxMeasurmentValue, radius, {
-            class: 'studyPoint', fill: '#aaa', stroke: 'red', 'stroke-width': strokeWidth,
+        var y = svg.height() * (1. - point[1]/maxMeasurmentValue);
+        svg.circle(pointGroup, point[0], y, radius, {
+            class: 'studyPoint ' + observer, 
             studyURL : 'http://qiicr.org',
             visitInfo : observer,
           });
       }
     }
 
+    setUserStyles();
     $('.studyPoint').bind('click', studyClick)
                     .bind('mouseover', studyOver)
                     .bind('mouseout', studyOut);
@@ -354,14 +363,9 @@ $(document).ready(function() {
     var options = {
       svg : svg,
       plotMeasurements : volumesByPatient,
-      pointOptions : {
-        "User1" : { color: 'red', shape: 'diamond', size: 8, opacity: .75 },
-        "User2" : { color: 'blue', shape: 'circle', size: 8, opacity: .75 },
-        "User3" : { color: 'green', shape: 'square', size: 8, opacity: .75 },
-      },
       legendText : 'Primary lesion volume (ml) per patient',
     };
-    if (Object.keys(volumesByPatient).legnth == 0) {
+    if (Object.keys(volumesByPatient).length == 0) {
       options.legendText = 'No data available';
     }
     makeMeasurmentPlot(options);
@@ -377,16 +381,30 @@ $(document).ready(function() {
   });
 
   function showInfoBox(x, y, contents) {
-      $('<div id="infoBox">' + contents + '</div>').css( {
-          position: 'absolute',
-          display: 'inline',
-          top: y + 5,
-          left: x + 5,
-          border: '1px solid #fdd',
-          padding: '1px',
-          'background-color': '#fff',
-          opacity: 0.90
-      }).appendTo("body").fadeIn(200);
+      var css = {
+        position: 'absolute',
+        display: 'inline',
+        border: '1px solid #fdd',
+        padding: '1px',
+        'background-color': '#fff',
+        opacity: 0.90
+    };
+    var svg = $('#trialChartID').svg('get');
+    /* TODO
+    if ( x < svg.width() / 2. ) {
+      css.left = x + 5;
+    } else {
+      css.right = x - 5;
+    }
+    if ( y < svg.height() / 2. ) {
+      css.top = y + 5;
+    } else {
+      css.bottom = y - 5;
+    }
+    */
+    css.top = y+5;
+    css.left = x+5;
+    $('<div id="infoBox">' + contents + '</div>').css( css ).appendTo("body").fadeIn(200);
   }
 
   function studyClick(event) {
@@ -407,10 +425,19 @@ $(document).ready(function() {
   }
 
   function studyOut() {
-      $(this).attr('stroke', 'red');
-      $(this).attr('fill', '#aaa');
-      $("#infoBox").fadeOut(100).remove();
+    setUserStyles();
+    $("#infoBox").fadeOut(300).remove();
   }
+
+  function setUserStyles() {
+    $('.User1').attr('fill', 'rgba(255, 0, 0, .6)');
+    $('.User2').attr('fill', 'rgba(0, 255, 0, .6)');
+    $('.User3').attr('fill', 'rgba(0, 0, 255, .6)');
+    $('.User1').attr('stroke', 'black');
+    $('.User2').attr('stroke', 'black');
+    $('.User3').attr('stroke', 'black');
+  }
+
 
 });
 
