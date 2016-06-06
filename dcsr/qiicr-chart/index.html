@@ -4,9 +4,7 @@
     <title>dc.js - Iowa Head and Neck Cancer Demo</title>
     <meta charset="UTF-8">
     <link rel="stylesheet" type="text/css" href="../css/dc.css"/>
-    <link rel="stylesheet" type="text/css" href="../css/mathbox.css">
     <script src="../js/jquery-1.11.2.min.js"></script>
-    <script src="../js/mathbox-bundle.js"></script>
     <meta name="viewport" content="initial-scale=1, maximum-scale=1">
 
     <style type="text/css">
@@ -25,6 +23,16 @@
       }
     </style>
 
+    <!--
+      JQuery SVG includes
+    -->
+		<script type="text/javascript" src="../js/jquery.svg.js"></script>
+    <style type="text/css">
+    @import "../css/jquery.svg.css";
+
+    .svgTrialChart { border: 1px solid #484; }
+    </style>
+
 </head>
 <body>
 
@@ -38,8 +46,6 @@
 
 <div id="measurement-table"></div>
 
-
-
 <div>
 <p>
 Exploration of clinical variables vs quantitative imaging results for
@@ -52,7 +58,7 @@ Chart key: Rater 1: red diamond; Rater 2: blue circle; Rater 3: green square.
 </p>
 <p>
 Chart created using <a href=http://dc-js.github.io/dc.js/>dc</a>
-and <a href=http://gitgud.io/unconed/mathbox>MathBox</a>.
+and <a href=http://keith-wood.name/svg.html>Jquery.svg</a>.
 </p>
 
 <p>
@@ -69,11 +75,32 @@ The work is funded by <a href=http://www.nci.nih.gov>NCI</a>.
 <script type="text/javascript" src="../js/dc.js"></script>
 <script type="text/javascript">
 
-var ndx;
-var patientIDDimension;
-
 $(document).ready(function() {
 
+var ndx;
+var patientIDDimension;
+var clinicalData;
+var measurementData = [];
+
+
+  // Request the clinical and measurement data
+  $.getJSON("./measurements.json", function(data) {
+    measurementData = data;
+    measurementTable.on('preRedraw', filterAndPlotMeasurements);
+    if (clinicalData) {
+      filterAndPlotMeasurements();
+    }
+  });
+
+  $.getJSON("./clinical.json", function(data) {
+    clinicalData = data;
+    makeClinicalPlot(clinicalData);
+    if (measurementData) {
+      filterAndPlotMeasurements();
+    }
+  });
+
+  // initialize the dc charts
   tumorSiteRowChart = dc.rowChart("#tumorSite-row-chart", "clinical");
   sexPieChart = dc.pieChart("#sex-pie-chart", "clinical");
   smokingPieChart = dc.pieChart("#smoking-pie-chart", "clinical");
@@ -82,6 +109,7 @@ $(document).ready(function() {
   outcomeHistogramChart = dc.barChart("#outcome-histogram-chart", "clinical");
   measurementTable = dc.dataTable("#measurement-table", "clinical");
 
+  // callback to populate clinical once downloaded
   makeClinicalPlot = function(clinicalData) {
 
     ndx = crossfilter(clinicalData),
@@ -226,154 +254,162 @@ $(document).ready(function() {
     dc.renderAll("clinical");
   };
 
-});
+  /*
+  * code to populate and draw measurement table
+  */
+  function makeMeasurmentPlot(options) {
 
-/*
- * clinical data cohort selection
- */
-var clinicalData;
-$.getJSON("./clinical.json", function(data) {
-  clinicalData = data;
-  makeClinicalPlot(clinicalData);
-});
-
-
-/*
- * measurement data scatter plot
- */
-var element = document.querySelector('#volume-scatter');
-var mathbox = mathBox({
-  element: element,
-  plugins: ['core', 'controls', 'cursor', 'mathbox'],
-  controls: {
-    // Orbit controls, i.e. Euler angles, with gimbal lock
-    klass: THREE.OrbitControls,
-  },
-});
-if (mathbox.fallback) throw "WebGL not supported"
-
-var three = mathbox.three;
-three.renderer.setClearColor(new THREE.Color(0xFFFFFF), 1.0);
-
-function makeMeasurmentPlot(options) {
-
-
-  var plotMeasurements = options.plotMeasurements || {};
-  var legendText = options.legendText || "No data";
-  var patients = Object.keys(plotMeasurements).sort();
-  var xDivisions = 10;
-  if (patients.length) {
-    xDivisions = 1 + patients.length;
-  }
-
-  // overall mathbox settings
-  mathbox.remove("*"); // start with clean slate
-  mathbox
-    .set('focus', 2)
-    .camera({ proxy: true, position: [0, 0, 2], });
-
-  // view is a cartesian plotting area with
-  // axes, a grid, label, etc
-  var view = mathbox.cartesian({ range: [[0, 1], [0, 100]], scale: [2, 1], })
-    .axis({ axis: 1, width: 3, end: false, })
-    .axis({ axis: 2, width: 3, end: false, })
-    .grid({ width: 1,  divideX: xDivisions, niceX: false, divideY: 10, })
-    .scale({ axis: 2, divide: 5, })
-    .ticks({ width: 3, size: 7, color: 'black', })
-    .format({ digits: 2, })
-    .label({ color: 'gray', zIndex: 1, offset: [-30, 0], })
-    .text({ data: [legendText], })
-    .label({ offset: [500, -40], zIndex: 1, color: 'black', });
-  mathbox.select('axis').set('color', 'black');
-  mathbox.select('grid').set('color', 'lightgray');
-
-  // the scatter plot
-  measurementPointsByObserver = {};
-  var x = 0;
-  var xIncrement = 1. / (1 + patients.length);
-  for (var patientIndex in patients) {
-    var patient = patients[patientIndex];
-    x += xIncrement;
-    var measurements = plotMeasurements[patient];
-    for (var index = 0; index < measurements.length; index++) {
-      var measurement = measurements[index];
-      var observer = measurement.personObserverName;
-      if (!measurementPointsByObserver[observer]) {
-        measurementPointsByObserver[observer] = [];
-      }
-      measurementPointsByObserver[observer].push([x, measurement.measurementValue]);
+    var svg = options.svg;
+    var plotMeasurements = options.plotMeasurements || {};
+    var legendText = options.legendText || "No data";
+    var patients = Object.keys(plotMeasurements).sort();
+    var xDivisions = 10;
+    if (patients.length) {
+      xDivisions = 1 + patients.length;
     }
-  }
-  for (var observer in measurementPointsByObserver) {
-    points = measurementPointsByObserver[observer];
-    view
-      .array({
-        id : observer,
-        data : points,
-        width: points.length,
-        channels: 2,
-        items: 1,
-        live: false,
-      })
-      .point(options.pointOptions[observer]);
-  }
-}
 
-function filterAndPlotMeasurements() {
-  var observerSet = new Set(["User1", "User2", "User3"]);
-  var selectedPatients = patientIDDimension.top(Infinity);
-  var patientIDSet = new Set();
-  for (var patientIndex in selectedPatients) {
-    var patientID = selectedPatients[patientIndex].patient[0].id[0];
-    patientIDSet.add(patientID);
-  }
-  var volumesByPatient = {};
-  for (var measurementIndex in measurementData) {
-    measurement = measurementData[measurementIndex];
-    if (!observerSet.has(measurement.personObserverName)) {
-      continue;
-    }
-    if (measurement.finding != "Neoplasm, Primary") {
-      continue;
-    }
-    if (measurement.activitySession != "1") {
-      continue;
-    }
-    var patientID = measurement.patientID;
-    if (patientIDSet.has(patientID)) {
-      if (measurement.measurementConcept == "Volume") {
-        if (!volumesByPatient[patientID]) {
-          volumesByPatient[patientID] = [];
+    // root is a normalized 0 to 1 coordinate system
+    svg.clear();
+    var aspectRatio = svg.width() / svg.height();
+    var transformString = 'scale('+ svg.width() + ',' + svg.height() + ')';
+    var root = svg.group('root', {'transform': transformString });
+    var patientLines = svg.group(root, 'patientLines', {'stroke': '#eee', 'stroke-width': .001});
+
+    // the scatter plot
+    measurementPointsByObserver = {};
+    var xIncrement = 1. / (1 + patients.length); // one-patient-width margin on each side
+    x = 0;
+    var maxMeasurmentValue = 0;
+    for (var patientIndex in patients) {
+      var patient = patients[patientIndex];
+      x += xIncrement;
+      svg.line(patientLines, x, 0, x, 1);
+      var measurements = plotMeasurements[patient];
+      for (var index = 0; index < measurements.length; index++) {
+        var measurement = measurements[index];
+        var observer = measurement.personObserverName;
+        if (!measurementPointsByObserver[observer]) {
+          measurementPointsByObserver[observer] = [];
         }
-        volumesByPatient[patientID].push(measurement);
+        measurementPointsByObserver[observer].push([x, measurement.measurementValue]);
+        if (measurement.measurementValue > maxMeasurmentValue) {
+          maxMeasurmentValue = measurement.measurementValue;
+        }
       }
     }
-  }
-  var options = {
-    plotMeasurements : volumesByPatient,
-    pointOptions : {
-      "User1" : { color: 'red', shape: 'diamond', size: 8, opacity: .75 },
-      "User2" : { color: 'blue', shape: 'circle', size: 8, opacity: .75 },
-      "User3" : { color: 'green', shape: 'square', size: 8, opacity: .75 },
-    },
-    legendText : 'Primary lesion volume (ml) per patient',
-  };
-  if (Object.keys(volumesByPatient).legnth == 0) {
-    options.legendText = 'No data available';
-  }
-  makeMeasurmentPlot(options);
-}
 
-var measurementData = [];
-$.getJSON("./measurements.json", function(data) {
-  measurementData = data;
-  measurementTable.on('preRedraw', filterAndPlotMeasurements);
-  filterAndPlotMeasurements();
-});
+    var radius = 0.005;
+    var strokeWidth = 0.001;
+    for (var observer in measurementPointsByObserver) {
+      var pointGroup = svg.group(root, observer);
+      points = measurementPointsByObserver[observer];
+      for (var pointIndex in points) {
+        var point = points[pointIndex];
+        svg.circle(pointGroup, point[0], point[1]/maxMeasurmentValue, radius, {
+            class: 'studyPoint', fill: '#aaa', stroke: 'red', 'stroke-width': strokeWidth,
+            studyURL : 'http://qiicr.org',
+            visitInfo : observer,
+          });
+      }
+    }
 
-makeMeasurmentPlot({
-  plotMeasurements : [],
-  legendText : ['Waiting for data to load...'],
+    $('.studyPoint').bind('click', studyClick)
+                    .bind('mouseover', studyOver)
+                    .bind('mouseout', studyOut);
+  }
+
+  function filterAndPlotMeasurements() {
+    var svg = $('#trialChartID').svg('get');
+    var observerSet = new Set(["User1", "User2", "User3"]);
+    var selectedPatients = patientIDDimension.top(Infinity);
+    var patientIDSet = new Set();
+    for (var patientIndex in selectedPatients) {
+      var patientID = selectedPatients[patientIndex].patient[0].id[0];
+      patientIDSet.add(patientID);
+    }
+    var volumesByPatient = {};
+    for (var measurementIndex in measurementData) {
+      measurement = measurementData[measurementIndex];
+      if (!observerSet.has(measurement.personObserverName)) {
+        continue;
+      }
+      if (measurement.finding != "Neoplasm, Primary") {
+        continue;
+      }
+      if (measurement.activitySession != "1") {
+        continue;
+      }
+      var patientID = measurement.patientID;
+      if (patientIDSet.has(patientID)) {
+        if (measurement.measurementConcept == "Volume") {
+          if (!volumesByPatient[patientID]) {
+            volumesByPatient[patientID] = [];
+          }
+          volumesByPatient[patientID].push(measurement);
+        }
+      }
+    }
+    var options = {
+      svg : svg,
+      plotMeasurements : volumesByPatient,
+      pointOptions : {
+        "User1" : { color: 'red', shape: 'diamond', size: 8, opacity: .75 },
+        "User2" : { color: 'blue', shape: 'circle', size: 8, opacity: .75 },
+        "User3" : { color: 'green', shape: 'square', size: 8, opacity: .75 },
+      },
+      legendText : 'Primary lesion volume (ml) per patient',
+    };
+    if (Object.keys(volumesByPatient).legnth == 0) {
+      options.legendText = 'No data available';
+    }
+    makeMeasurmentPlot(options);
+  }
+
+  $(function(){
+
+    $('#volume-scatter').append(
+      "<div id='trialChartID' class='svgTrialChart' style='width: 100%; height: 600px'></div>"
+    );
+
+    $('#trialChartID').svg();
+  });
+
+  function showInfoBox(x, y, contents) {
+      $('<div id="infoBox">' + contents + '</div>').css( {
+          position: 'absolute',
+          display: 'inline',
+          top: y + 5,
+          left: x + 5,
+          border: '1px solid #fdd',
+          padding: '1px',
+          'background-color': '#fff',
+          opacity: 0.90
+      }).appendTo("body").fadeIn(200);
+  }
+
+  function studyClick(event) {
+    // TODO
+    var svg = $('#trialChartID').svg('get');
+
+    var measurement = event.target;
+    var studyURL = measurement.getAttribute('studyURL');
+    //window.location.href = studyURL;
+  }
+
+  function studyOver(event) {
+    var measurement = event.target;
+    var visitInfo = measurement.getAttribute('visitInfo');
+      $(this).attr('stroke', 'lime');
+      $(this).attr('fill', 'black');
+      showInfoBox(event.pageX, event.pageY, visitInfo);
+  }
+
+  function studyOut() {
+      $(this).attr('stroke', 'red');
+      $(this).attr('fill', '#aaa');
+      $("#infoBox").fadeOut(100).remove();
+  }
+
 });
 
 </script>
