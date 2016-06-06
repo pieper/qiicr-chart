@@ -3,8 +3,10 @@
 <head>
     <title>dc.js - Iowa Head and Neck Cancer Demo</title>
     <meta charset="UTF-8">
-    <link rel="stylesheet" type="text/css" href="../css/dc.css"/>
     <script src="../js/jquery-1.11.2.min.js"></script>
+		<script src="../js/jquery.svg.js"></script>
+    <link rel="stylesheet" href="../css/dc.css"/>
+    <link rel="stylesheet" href="../css/jquery.svg.css"/>
     <meta name="viewport" content="initial-scale=1, maximum-scale=1">
 
     <style type="text/css">
@@ -23,15 +25,6 @@
       }
     </style>
 
-    <!--
-      JQuery SVG includes
-    -->
-		<script type="text/javascript" src="../js/jquery.svg.js"></script>
-    <style type="text/css">
-    @import "../css/jquery.svg.css";
-
-    .svgTrialChart { border: 1px solid #484; }
-    </style>
 
 </head>
 <body>
@@ -277,13 +270,12 @@ $(document).ready(function() {
       xDivisions = 1 + patients.length;
     }
 
-    // root is a normalized 0 to 1 coordinate system
     svg.clear();
-    var aspectRatio = svg.width() / svg.height();
     var root = svg.group('root');
+    svg.rect(root, 0, 0, svg.width(), svg.height(), {
+      'stroke': '#111', 'fill': '#fff', 'stroke-width': 1
+    });
     var patientLines = svg.group(root, 'patientLines', {'stroke': '#eee', 'stroke-width': 1});
-
-    console.log('plotMeasurements', plotMeasurements);
 
     // the scatter plot
     measurementPointsByObserver = {};
@@ -291,7 +283,6 @@ $(document).ready(function() {
     x = 0;
     var maxMeasurmentValue = 0;
     for (var patientIndex in patients) {
-      console.log('patientIndex', patientIndex);
       var patient = patients[patientIndex];
       x += xIncrement;
       svg.line(patientLines, x, 0, x, svg.height());
@@ -309,7 +300,7 @@ $(document).ready(function() {
       }
     }
 
-    var radius = 10;
+    var radius = 7;
     var strokeWidth = 1;
     for (var observer in measurementPointsByObserver) {
       var pointGroup = svg.group(root, observer);
@@ -330,7 +321,6 @@ $(document).ready(function() {
   }
 
   filterAndPlotMeasurements = function() {
-    console.log('filterAndPlotMeasurements');
     var svg = $('#trialChartID').svg('get');
     var observerSet = ["User1", "User2", "User3"];
     var selectedPatients = patientIDDimension.top(Infinity);
@@ -405,7 +395,7 @@ $(document).ready(function() {
 
     var measurement = event.target;
     var studyURL = measurement.getAttribute('studyURL');
-    //window.location.href = studyURL;
+    window.location.href = studyURL;
   }
 
   function studyOver(event) {
