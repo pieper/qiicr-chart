@@ -334,7 +334,6 @@ $(document).ready(function() {
         var y = svg.height() * (1. - point[1]/topEdge);
         var settings = {
           class: 'studyPoint ' + observer,
-          studyURL : 'http://qiicr.org',
           referencedSegmentSOPInstanceUID : measurementPoint.referencedSegmentSOPInstanceUID,
           referencedSegmentNumbers : measurementPoint.SegmentNumbers,
           instanceUID : measurementPoint.instanceUID,
@@ -434,12 +433,9 @@ $(document).ready(function() {
   }
 
   function studyClick(event) {
-    // TODO
-    var svg = $('#trialChartID').svg('get');
-
     var measurement = event.target;
-    var studyURL = measurement.getAttribute('studyURL');
-    window.location.href = studyURL;
+    var segUID = measurement.getAttribute('referencedSegmentSOPInstanceUID');
+    window.status = JSON.stringify({'command' : 'loadRequest', 'instanceUID' : segUID});
   }
 
   function studyOver(event) {
